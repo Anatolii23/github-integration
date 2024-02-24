@@ -16,6 +16,6 @@ public class ApplicationExceptionHandler {
 
     @ExceptionHandler(ServiceException.class)
     public ResponseEntity<ServiceResponseBody> handleRentalException(ServiceException e) {
-        return ResponseEntity.status(e.getCode()).body(e.getBody());
+        return ResponseEntity.status(e.getResponseCode()).body(e.getResponseBody());
     }
 }

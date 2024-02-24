@@ -1,28 +1,17 @@
 package com.example.integration.exception;
 
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+
 /**
  * Service Response Body.
  *
  * @author Amatolii Hamza
  */
+@Getter
+@AllArgsConstructor
 public class ServiceResponseBody {
 
     private String message;
     private String code;
-
-    public ServiceResponseBody() {
-    }
-
-    public ServiceResponseBody(String message, String code) {
-        this.message = message;
-        this.code = code;
-    }
-
-    public String getMessage() {
-        return message;
-    }
-
-    public String getCode() {
-        return code;
-    }
 }

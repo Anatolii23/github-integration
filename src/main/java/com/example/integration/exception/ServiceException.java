@@ -1,5 +1,6 @@
 package com.example.integration.exception;
 
+import lombok.Getter;
 import org.springframework.http.HttpStatus;
 
 /**
@@ -7,6 +8,7 @@ import org.springframework.http.HttpStatus;
  *
  * @author Anatolii Hamza
  */
+@Getter
 public class ServiceException extends Exception {
 
     private final HttpStatus responseCode;
@@ -16,13 +18,5 @@ public class ServiceException extends Exception {
         super(message);
         this.responseCode = responseCode;
         this.responseBody = new ServiceResponseBody(message, errorCode);
-    }
-
-    public HttpStatus getCode() {
-        return responseCode;
-    }
-
-    public ServiceResponseBody getBody() {
-        return responseBody;
     }
 }
