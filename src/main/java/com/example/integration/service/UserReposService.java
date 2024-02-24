@@ -20,6 +20,9 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executors;
 
 /**
  * User Repos Controller.
@@ -65,17 +68,33 @@ public class UserReposService {
         var responses = new ArrayList<UserRepoResponse>();
         var userResponse = getUserLogin(login);
         var repoResponse = getReposResponses(userResponse.login());
-        var filtered = Arrays.stream(repoResponse).filter(repo -> !repo.fork()).toList();
-        if (!filtered.isEmpty()) {
-            for (var repo : filtered) {
-                var branchResponses = getBranchResponses(login, repo);
-                if (Objects.nonNull(branchResponses)) {
-                    responses.add(new UserRepoResponse(
-                            repo.name(), userResponse.login(), branchResponses));
+        try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
+            var futures = Arrays.stream(repoResponse)
+                    .filter(repo -> !repo.fork())
+                    .map(repo -> executor.submit(() -> processRepository(userResponse.login(), repo)))
+                    .toList();
+            for (var future : futures) {
+                try {
+                    future.get().ifPresent(responses::add);
+                } catch (InterruptedException | ExecutionException e) {
+                    LOG.error("Error during process: {}", e.getMessage());
+                    throw new RestClientErrorException(e.getMessage());
                 }
             }
         }
         return responses;
+    }
+
+    /**
+     * Process repository.
+     *
+     * @param login {@link String} user login
+     * @param repo  {@link RepositoryResponse}
+     * @return {@link Optional} of {@link UserRepoResponse}
+     */
+    private Optional<UserRepoResponse> processRepository(String login, RepositoryResponse repo) {
+        var branchResponses = getBranchResponses(login, repo);
+        return branchResponses.map(responses -> new UserRepoResponse(repo.name(), login, responses));
     }
 
     /**
@@ -84,21 +103,13 @@ public class UserReposService {
      * @param login {@link String} user login
      * @param repo  {@link RepositoryResponse}
      * @return array of {@link BranchResponse}
-     * @throws RestClientErrorException when request to GitHub client failed
      */
-    private BranchResponse[] getBranchResponses(String login, RepositoryResponse repo)
-            throws RestClientErrorException {
-
-        try {
-            return restClient.get()
-                    .uri(SLASH + REPOS + SLASH + login + SLASH + repo.name() + SLASH + BRANCHES)
-                    .retrieve()
-                    .toEntity(BranchResponse[].class)
-                    .getBody();
-        } catch (HttpClientErrorException e) {
-            LOG.error("Error during process: {}", e.getMessage());
-            throw new RestClientErrorException(e.getMessage());
-        }
+    private Optional<BranchResponse[]> getBranchResponses(String login, RepositoryResponse repo) {
+        return Optional.ofNullable(restClient.get()
+                .uri(SLASH + REPOS + SLASH + login + SLASH + repo.name() + SLASH + BRANCHES)
+                .retrieve()
+                .toEntity(BranchResponse[].class)
+                .getBody());
     }
 
     /**
