@@ -29,4 +29,9 @@ public class UserReposController {
     public List<UserRepoResponse> getUserRepo(@PathVariable String login) throws ServiceException {
         return UserReposService.getUserRepos(login);
     }
+
+    @GetMapping("/repo")
+    public List<UserRepoResponse> getUsersRepo() throws ServiceException {
+        return UserReposService.getUsersRepos();
+    }
 }

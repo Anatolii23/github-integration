@@ -66,7 +66,21 @@ public class UserReposService {
 
         login = login.trim();
         var responses = new ArrayList<UserRepoResponse>();
-        var userResponse = getUserLogin(login);
+        var userResponse = getUserByLogin(login);
+        addUserResponses(responses, userResponse);
+        return responses;
+    }
+
+    /**
+     * Add users repos with branches to response.
+     *
+     * @param responses    {@link List} of {@link UserRepoResponse}
+     * @param userResponse {@link UserResponse}
+     * @throws RestClientErrorException when request to GitHub client failed
+     * @throws ReposNotFoundException   when repos was not found
+     */
+    private void addUserResponses(List<UserRepoResponse> responses, UserResponse userResponse)
+            throws ReposNotFoundException, RestClientErrorException {
         var repoResponse = getReposResponses(userResponse.login());
         try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
             var futures = Arrays.stream(repoResponse)
@@ -80,6 +94,28 @@ public class UserReposService {
                     LOG.error("Error during process: {}", e.getMessage());
                     throw new RestClientErrorException(e.getMessage());
                 }
+            }
+        }
+    }
+
+    /**
+     * Gets users repos with branches.
+     *
+     * @return {@link List} of {@link UserRepoResponse}
+     * @throws RestClientErrorException when request to GitHub client failed
+     */
+    public List<UserRepoResponse> getUsersRepos() throws RestClientErrorException {
+        var responses = new ArrayList<UserRepoResponse>();
+        var users = getUsers();
+        for (var user : users) {
+            try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
+                executor.submit(() -> {
+                    try {
+                        addUserResponses(responses, user);
+                    } catch (ReposNotFoundException | RestClientErrorException e) {
+                        LOG.error("Error during process: {}", e.getMessage());
+                    }
+                });
             }
         }
         return responses;
@@ -148,7 +184,7 @@ public class UserReposService {
      * @throws RestClientErrorException when request to GitHub client failed
      * @throws UserNotFoundException    when user was not found
      */
-    private UserResponse getUserLogin(String login) throws UserNotFoundException, RestClientErrorException {
+    private UserResponse getUserByLogin(String login) throws UserNotFoundException, RestClientErrorException {
         try {
             return restClient.get()
                     .uri(SLASH + USERS + SLASH + login)
@@ -162,6 +198,25 @@ public class UserReposService {
             } else {
                 throw new RestClientErrorException(e.getMessage());
             }
+        }
+    }
+
+    /**
+     * Gets users info.
+     *
+     * @return array of {@link UserResponse}
+     * @throws RestClientErrorException when request to GitHub client failed
+     */
+    private UserResponse[] getUsers() throws RestClientErrorException {
+        try {
+            return restClient.get()
+                    .uri(SLASH + USERS)
+                    .retrieve()
+                    .toEntity(UserResponse[].class)
+                    .getBody();
+        } catch (HttpClientErrorException e) {
+            LOG.error("Error during process: {}", e.getMessage());
+            throw new RestClientErrorException(e.getMessage());
         }
     }
 }
