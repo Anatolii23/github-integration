@@ -72,6 +72,31 @@ public class UserReposService {
     }
 
     /**
+     * Gets users repos with branches.
+     *
+     * @return {@link List} of {@link UserRepoResponse}
+     * @throws RestClientErrorException when request to GitHub client failed
+     */
+    public List<UserRepoResponse> getUsersRepos() throws RestClientErrorException {
+        var responses = new ArrayList<UserRepoResponse>();
+        var users = getUsers();
+        for (var user : users) {
+            try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
+                executor.submit(() -> {
+                    try {
+                        addUserResponses(responses, user);
+                    } catch (ReposNotFoundException | RestClientErrorException e) {
+                        LOG.error("Error during process: {}", e.getMessage());
+                    }
+                });
+            }
+        }
+        return responses;
+    }
+
+    /* Private methods */
+
+    /**
      * Add users repos with branches to response.
      *
      * @param responses    {@link List} of {@link UserRepoResponse}
@@ -96,29 +121,6 @@ public class UserReposService {
                 }
             }
         }
-    }
-
-    /**
-     * Gets users repos with branches.
-     *
-     * @return {@link List} of {@link UserRepoResponse}
-     * @throws RestClientErrorException when request to GitHub client failed
-     */
-    public List<UserRepoResponse> getUsersRepos() throws RestClientErrorException {
-        var responses = new ArrayList<UserRepoResponse>();
-        var users = getUsers();
-        for (var user : users) {
-            try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
-                executor.submit(() -> {
-                    try {
-                        addUserResponses(responses, user);
-                    } catch (ReposNotFoundException | RestClientErrorException e) {
-                        LOG.error("Error during process: {}", e.getMessage());
-                    }
-                });
-            }
-        }
-        return responses;
     }
 
     /**
